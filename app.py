@@ -1,15 +1,23 @@
 from io import StringIO
-from more_itertools import locate
-
-import streamlit as st
 from typing import List
-import pandas as pd
+
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import streamlit as st
+from sklearn.cluster import KMeans
+from sklearn.pipeline import Pipeline
 
-# for animation in the notebook
-from matplotlib import rc
 
-rc("animation", html="html5")
+def minmax_scale(x):
+    res = (x - np.min(x)) / (np.max(x) - np.min(x))  # +0.5
+    return res  # + 0.5
+
+
+def from_zero(x):
+    res = x - min(x)  # ( - np.mean(x)) / np.std(x, ddof=1)
+    return res
+
 
 class Elian:
     data_boundary = "[DATA]"
@@ -37,25 +45,7 @@ class Elian:
         data = content[begins_at:]
         return data
 
-    @property
-    def hoge(self):
-        pass
-
-
-# filesを取得
-uploaded_files = st.file_uploader("Choose elian files", accept_multiple_files=True)
-if len(uploaded_files):
-    uploaded_file = uploaded_files[0]
-    string_data = StringIO(uploaded_file.getvalue().decode("utf-8")).readlines()
-    st.write("filename:", uploaded_file.name)
-
-    # df化
-    import numpy as np
-    import pandas as pd
-
-    data = Elian(string_data, n_aoi=4).data
-
-
+    @staticmethod
     def stroke_validation(stroke: list):
         """_summary_
 
@@ -77,79 +67,104 @@ if len(uploaded_files):
             return True
         return False
 
+    @property
+    def df(self):
+        data = self.data
+        stroke_id = 0
+        stroke, strokes, = (
+            [],
+            [],
+        )
 
-    strokes = []
-    stroke = []
-    stroke_id = 0
+        for xytz in data:
+            if xytz != self.stroke_boundary:
+                sxytz = [stroke_id] + list(np.fromstring(xytz, dtype=int, sep=" "))
+                stroke.append(np.array(sxytz, dtype=int))
+            else:  # "0 0 0"
+                if self.stroke_validation(stroke):
+                    strokes.append(np.array(stroke))
+                    stroke_id += 1
+                stroke = []
 
+        x_y_ms_z = np.concatenate(strokes)
+        x_y_ms_z_df = pd.DataFrame(x_y_ms_z, columns=["stroke", "x", "y", "ms", "z"])
 
+        df = x_y_ms_z_df
+        pipe = Pipeline([("cluster", KMeans(n_clusters=self.n_aoi, random_state=42))])
+        df["cluster"] = pipe.fit_predict(df[["x", "y"]])
+        return df
 
-    for xytz in data:
-        if xytz != "0 0 0":
-            sxytz = [stroke_id] + list(np.fromstring(xytz, dtype=int, sep=" "))
-            stroke.append(np.array(sxytz, dtype=int))
-        else:  # "0 0 0"
-            if stroke_validation(stroke):
-                strokes.append(np.array(stroke))
-                # 有効なら更新
-                stroke_id += 1
-            stroke = []
+st.header("Elian Visualizer")
+st.subheader("How to use")
+st.write("""
+1. Drag and drop files here から `.elian` ファイルをアップロード(同時に複数可能)
+1. 見栄えを調整(左の Figure size や Font size を調整してください。)
+1. 分割数を調整(左の Number of ... から調整してください。)
+1. もし時間情報が不要なら、Alpha (透明度) for time のチェックをオフ
 
-    # strokes
-    boundaries: List[int] = list(locate(data, lambda x: x == Elian.stroke_boundary))
-    boundary_starts, boundary_ends = [0] + boundaries, boundaries + [-2]
+(初回起動時はちょっともたつきます。)
+""")
 
-    # data = list(filter(lambda r: r != "0 0 0", data))
-    # x_y_ms_z = np.array([np.fromstring(r, dtype=int, sep=" ") for r in data])
-    x_y_ms_z = np.concatenate(strokes)
-    x_y_ms_z_df = pd.DataFrame(x_y_ms_z, columns=["stroke", "x", "y", "ms", "z"])
+# ハイパラ
+figure_size = st.sidebar.slider("Figure size", 5, 10, 8)
+font_size = st.sidebar.slider("Font size", 12, 32, 24)
+n_components = st.sidebar.slider("Number of pitcure in a file", 1, 5, 4)
+use_alpha = st.sidebar.checkbox("Alpha for time", True)
 
-    # time to z
-    # cluster by shape
-    from sklearn.cluster import KMeans
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.pipeline import Pipeline
+st.subheader("Upload")
 
-    df = x_y_ms_z_df
-    n_components = st.slider('Number of Pitcure', 1, 5, 4)
-    pipe = Pipeline([("cluster", KMeans(n_clusters=n_components))])
-    df["cluster"] = pipe.fit_predict(df[["x", "y"]])
+# filesを取得
+uploaded_files = st.file_uploader("Choose elian files", accept_multiple_files=True)
+if len(uploaded_files) == 0:
+    raise ValueError("Please upload some elian files!")
 
+st.subheader("Results")
+st.write("画像の右に拡大マークがでます。あるいは左のフォントサイズで調整できます。")
 
-    def minmax_scale(x):
-        res = (x-np.min(x))/(np.max(x)-np.min(x))# +0.5
-        return res # + 0.5
+for uploaded_file in uploaded_files:
+    string_data = StringIO(uploaded_file.getvalue().decode("utf-8")).readlines()
+    st.write(f"filename: {uploaded_file.name}")
+    df = Elian(string_data, n_aoi=n_components).df
 
-    def from_zero(x):
-        res = x - min(x)# ( - np.mean(x)) / np.std(x, ddof=1)
-        return res
-
-    import matplotlib.pyplot as plt
-
+    cols = st.columns(n_components)
     for i in range(n_components):
-        st.write(f"cluster == {i}")
-        # pair_of_strokes = self.df_at_adult(aoi)
-        # pair_of_strokes = self.df_at_child(aoi)
-        # dataをすでに作成して、Kmeans で分割してみる。
-        df_i = df.query(f"cluster == {i}") 
-        df_i["stroke"] = from_zero(df_i["stroke"])
-        df_i["ms"] = df_i.groupby("stroke").transform(minmax_scale)["ms"]
-        pair_of_strokes = df_i
+        with cols[i]:
+            df_i = df.query(f"cluster == {i}")
+            df_i["stroke"] = from_zero(df_i["stroke"])
+            df_i["ms"] = df_i.groupby("stroke").transform(minmax_scale)["ms"]
 
-        plt.figure(figsize=(7, 7))
-        X = list(pair_of_strokes["x"])
-        Y = list(pair_of_strokes["y"] * -1)  # 上下逆なため
-        S = list(pair_of_strokes['stroke'])
-        T = list(pair_of_strokes['ms'] * -1 + 1)  # 直感的に後を薄くする
-        # st.write(T)
+            plt.figure(figsize=(figure_size, figure_size))
+            X = list(df_i["x"])
+            Y = list(df_i["y"] * -1)  # 上下逆なため
+            S = list(df_i["stroke"])
+            T = list(df_i["ms"] * -1 + 1)  # 直感的に後を薄くする
 
-        plt.xlim(min(X) - 5, max(X) + 5)
-        plt.ylim(min(Y) - 5, max(Y) + 5)
+            plt.xlim(min(X) - 5, max(X) + 5)
+            plt.ylim(min(Y) - 5, max(Y) + 5)
 
-        for i in range(len(pair_of_strokes)):
-            try:
-                plt.text(X[i], Y[i], str(S[i]), color=f"C{S[i]}", alpha=T[i])  # 67はない
-            except:
-                print("ERROR!")
+            for i in range(len(df_i)):
+                try:
+                    if use_alpha:
+                        plt.text(
+                            X[i],
+                            Y[i],
+                            str(S[i]),
+                            color=f"C{S[i]}",
+                            alpha=T[i],
+                            fontsize=font_size,
+                        )  # 67はない
+                    else:
+                        plt.text(
+                            X[i], Y[i], str(S[i]), color=f"C{S[i]}", fontsize=font_size
+                        )  # 67はない
+                except:
+                    print("ERROR!")
 
-        st.pyplot(plt)
+            st.pyplot(plt)
+
+st.subheader("Appendix")
+st.write("""
+オンライン版はそこまでパワフルではないので、手元のPCでも走らせられます。
+が、ちょっと複雑なので今度にします。
+もし他にご要望があれば Slack かメール( kishiyama.t@gmail.com ) で岸山にご連絡ください。
+""")
