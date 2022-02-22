@@ -103,7 +103,6 @@ if len(uploaded_files):
     # data = list(filter(lambda r: r != "0 0 0", data))
     # x_y_ms_z = np.array([np.fromstring(r, dtype=int, sep=" ") for r in data])
     x_y_ms_z = np.concatenate(strokes)
-    st.write(x_y_ms_z)
     x_y_ms_z_df = pd.DataFrame(x_y_ms_z, columns=["stroke", "x", "y", "ms", "z"])
 
     # time to z
