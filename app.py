@@ -5,7 +5,6 @@ import streamlit as st
 from typing import List
 import pandas as pd
 import numpy as np
-from plotnine import *
 
 # for animation in the notebook
 from matplotlib import rc
