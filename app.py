@@ -94,16 +94,19 @@ class Elian:
         df["cluster"] = pipe.fit_predict(df[["x", "y"]])
         return df
 
+
 st.header("Elian Visualizer")
 st.subheader("How to use")
-st.write("""
+st.write(
+    """
 1. Drag and drop files here から `.elian` ファイルをアップロード(同時に複数可能)
 1. 見栄えを調整(左の Figure size や Font size を調整してください。)
 1. 分割数を調整(左の Number of ... から調整してください。)
 1. もし時間情報が不要なら、Alpha (透明度) for time のチェックをオフ
 
 (初回起動時はちょっともたつきます。)
-""")
+"""
+)
 
 # ハイパラ
 figure_size = st.sidebar.slider("Figure size", 5, 10, 8)
@@ -143,28 +146,27 @@ for uploaded_file in uploaded_files:
             plt.ylim(min(Y) - 5, max(Y) + 5)
 
             for i in range(len(df_i)):
-                try:
-                    if use_alpha:
-                        plt.text(
-                            X[i],
-                            Y[i],
-                            str(S[i]),
-                            color=f"C{S[i]}",
-                            alpha=T[i],
-                            fontsize=font_size,
-                        )  # 67はない
-                    else:
-                        plt.text(
-                            X[i], Y[i], str(S[i]), color=f"C{S[i]}", fontsize=font_size
-                        )  # 67はない
-                except:
-                    print("ERROR!")
+                if use_alpha:
+                    plt.text(
+                        X[i],
+                        Y[i],
+                        str(S[i]),
+                        color=f"C{S[i]}",
+                        alpha=T[i],
+                        fontsize=font_size,
+                    )  # 67はない
+                else:
+                    plt.text(
+                        X[i], Y[i], str(S[i]), color=f"C{S[i]}", fontsize=font_size
+                    )  # 67はない
 
             st.pyplot(plt)
 
 st.subheader("Appendix")
-st.write("""
+st.write(
+    """
 オンライン版はそこまでパワフルではないので、手元のPCでも走らせられます。
 が、ちょっと複雑なので今度にします。
 もし他にご要望があれば Slack かメール( kishiyama.t@gmail.com ) で岸山にご連絡ください。
-""")
+"""
+)
