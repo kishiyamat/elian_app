@@ -8,6 +8,19 @@ import streamlit as st
 from sklearn.cluster import KMeans
 from sklearn.pipeline import Pipeline
 
+style_fullscreen_button_css = """
+    button[title="View fullscreen"] {
+        left: 0px;
+    }
+    button[title="Exit fullscreen"] {
+        left: 0px;
+    }
+    """
+st.markdown(
+    "<style>" + style_fullscreen_button_css + "</styles>",
+    unsafe_allow_html=True,
+)
+
 
 def minmax_scale(x):
     res = (x - np.min(x)) / (np.max(x) - np.min(x))  # +0.5
@@ -119,10 +132,15 @@ st.subheader("Upload")
 # filesを取得
 uploaded_files = st.file_uploader("Choose elian files", accept_multiple_files=True)
 if len(uploaded_files) == 0:
-    raise ValueError("Please upload some elian files!")
+    raise FileNotFoundError("Please upload some elian files!")
 
 st.subheader("Results")
-st.write("画像の右に拡大マークがでます。あるいは左のフォントサイズで調整できます。")
+st.write(
+    """
+* 画像の左上に拡大/縮小マークがでます (Escで縮小もできます)。
+* 左でのフォントサイズ等も調整できます。
+"""
+)
 
 for uploaded_file in uploaded_files:
     string_data = StringIO(uploaded_file.getvalue().decode("utf-8")).readlines()
